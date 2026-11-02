@@ -6,6 +6,15 @@ const THAI_TITLES = ['นาย', 'นาง', 'นางสาว', 'เด็�
 const NATIONALITIES = ['ไทย', 'สหรัฐอเมริกา', 'จีน', 'ญี่ปุ่น', 'เกาหลีใต้', 'สิงคโปร์', 'มาเลเซีย', 'อังกฤษ', 'ออสเตรเลีย', 'เยอรมัน', 'ฝรั่งเศส'];
 const GENDERS = ['ชาย', 'หญิง', 'ไม่ระบุ'];
 
+function readEmployeeToken(): string | null {
+  try {
+    const stored = localStorage.getItem('pbank_employee_session');
+    return stored ? ((JSON.parse(stored) as { token?: string }).token ?? null) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AdminCreateAccountScreen() {
   const [title, setTitle] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -28,9 +37,12 @@ export default function AdminCreateAccountScreen() {
     setError('');
     if (!title || !firstName || !lastName) { setError('กรุณากรอกชื่อให้ครบ'); return; }
     if (!nationalId) { setError('กรุณากรอกเลขบัตรประชาชน'); return; }
+    const token = readEmployeeToken();
+    if (!token) { setError('เซสชันพนักงานหมดอายุ กรุณาเข้าสู่ระบบพนักงานใหม่'); return; }
     setLoading(true);
     try {
-      const { data, error: rpcError } = await supabase.rpc('admin_create_account', {
+      const { data, error: rpcError } = await supabase.rpc('employee_create_account', {
+        p_token: token,
         p_title: title,
         p_first_name: firstName,
         p_last_name: lastName,
@@ -45,7 +57,8 @@ export default function AdminCreateAccountScreen() {
         p_initial_balance: parseFloat(initialBalance) || 0,
       });
       if (rpcError) throw rpcError;
-      const result = (data as unknown as { account_id: string; account_number: string }[])[0];
+      const result = (data as unknown as { account_id: string; account_number: string }[] | null)?.[0];
+      if (!result) throw new Error('สร้างบัญชีไม่สำเร็จ');
       const fullName = [title, firstName, middleName, lastName].filter(Boolean).join(' ');
       setSuccess({ name: fullName, number: result.account_number });
     } catch (err) {

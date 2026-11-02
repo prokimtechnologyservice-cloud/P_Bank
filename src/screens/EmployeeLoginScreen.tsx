@@ -19,7 +19,7 @@ export default function EmployeeLoginScreen() {
     setError('');
     setLoading(true);
     try {
-      const { data, error: rpcError } = await supabase.rpc('employee_login', {
+      const { data, error: rpcError } = await supabase.rpc('employee_sign_in', {
         p_employee_code: employeeCode.trim(),
         p_password: password,
       });
@@ -28,8 +28,8 @@ export default function EmployeeLoginScreen() {
         setLoading(false);
         return;
       }
-      const emp = (data as { id: string; employee_code: string; full_name: string; role: string }[])[0];
-      const empData = { id: emp.id, username: emp.employee_code, full_name: emp.full_name, role: emp.role };
+      const emp = (data as { token: string; id: string; employee_code: string; full_name: string; role: string }[])[0];
+      const empData = { token: emp.token, id: emp.id, username: emp.employee_code, full_name: emp.full_name, role: emp.role };
       localStorage.setItem('pbank_employee_session', JSON.stringify(empData));
       navigate(fromPath, { replace: true });
     } catch {
