@@ -5,6 +5,7 @@ import {
   AlertCircle, ArrowRight, ArrowLeft, ShieldCheck, ScanLine, CreditCard as IdCard,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { validateThaiNationalId } from '@/lib/nationalId';
 
 type SignupStep = 'account' | 'identity' | 'idcard' | 'selfie' | 'done';
 
@@ -25,15 +26,6 @@ function formatNationalId(id: string): string {
   if (cleaned.length > 10) result = cleaned.slice(0, 1) + '-' + cleaned.slice(1, 5) + '-' + cleaned.slice(5, 10) + '-' + cleaned.slice(10);
   if (cleaned.length > 12) result = cleaned.slice(0, 1) + '-' + cleaned.slice(1, 5) + '-' + cleaned.slice(5, 10) + '-' + cleaned.slice(10, 12) + '-' + cleaned.slice(12);
   return result;
-}
-
-function validateNationalId(id: string): boolean {
-  const cleaned = id.replace(/-/g, '');
-  if (cleaned.length !== 13 || !/^\d{13}$/.test(cleaned)) return false;
-  let sum = 0;
-  for (let i = 0; i < 12; i++) sum += parseInt(cleaned[i]) * (13 - i);
-  const check = (11 - (sum % 11)) % 10;
-  return check === parseInt(cleaned[12]);
 }
 
 export default function AuthScreen() {
@@ -154,7 +146,7 @@ export default function AuthScreen() {
     setError('');
     setNationalIdError('');
     const cleanedId = nationalId.replace(/-/g, '');
-    if (!validateNationalId(cleanedId)) { setNationalIdError('เลขบัตรประชาชนไม่ถูกต้อง'); return; }
+    if (!validateThaiNationalId(cleanedId)) { setNationalIdError('เลขบัตรประชาชนไม่ถูกต้อง'); return; }
     setCheckingId(true);
     const { data } = await supabase.rpc('check_national_id_available', { p_national_id: cleanedId });
     setCheckingId(false);
@@ -183,7 +175,8 @@ export default function AuthScreen() {
       if (data.user) {
         const userId = data.user.id;
         // Set PIN
-        await supabase.rpc('set_pin', { p_pin: pin });
+        const { error: pinError } = await supabase.rpc('set_pin', { p_pin: pin });
+        if (pinError) throw pinError;
         // Upload selfie
         if (selfieDataUrl) {
           const blob = await fetch(selfieDataUrl).then((r) => r.blob());

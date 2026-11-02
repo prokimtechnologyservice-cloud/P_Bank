@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { UserPlus, Loader2, X, Check, Wallet } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { validateThaiNationalId } from '@/lib/nationalId';
 
 const THAI_TITLES = ['นาย', 'นาง', 'นางสาว', 'เด็กชาย', 'เด็กหญิง', 'ดร.', 'แพทย์หญิง', 'แพทย์ชาย', 'รศ.', 'ผศ.', 'อ.'];
 const NATIONALITIES = ['ไทย', 'สหรัฐอเมริกา', 'จีน', 'ญี่ปุ่น', 'เกาหลีใต้', 'สิงคโปร์', 'มาเลเซีย', 'อังกฤษ', 'ออสเตรเลีย', 'เยอรมัน', 'ฝรั่งเศส'];
@@ -36,7 +37,9 @@ export default function AdminCreateAccountScreen() {
     e.preventDefault();
     setError('');
     if (!title || !firstName || !lastName) { setError('กรุณากรอกชื่อให้ครบ'); return; }
-    if (!nationalId) { setError('กรุณากรอกเลขบัตรประชาชน'); return; }
+    const isThai = nationality === 'ไทย';
+    if (!nationalId) { setError(isThai ? 'กรุณากรอกเลขบัตรประชาชน' : 'กรุณากรอกเลขประจำตัว'); return; }
+    if (isThai && !validateThaiNationalId(nationalId)) { setError('เลขบัตรประชาชนไม่ถูกต้อง'); return; }
     const token = readEmployeeToken();
     if (!token) { setError('เซสชันพนักงานหมดอายุ กรุณาเข้าสู่ระบบพนักงานใหม่'); return; }
     setLoading(true);
@@ -49,7 +52,7 @@ export default function AdminCreateAccountScreen() {
         p_middle_name: middleName,
         p_date_of_birth: dob || null,
         p_gender: gender,
-        p_national_id: nationalId.replace(/-/g, ''),
+        p_national_id: nationalId,
         p_nationality: nationality,
         p_email: email,
         p_password: password,
@@ -131,14 +134,14 @@ export default function AdminCreateAccountScreen() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-1.5">สัญชาติ</label>
-            <select value={nationality} onChange={(e) => setNationality(e.target.value)} className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all">
+            <select value={nationality} onChange={(e) => { setNationality(e.target.value); setNationalId(''); setError(''); }} className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all">
               {NATIONALITIES.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">เลขบัตรประชาชน *</label>
-          <input type="text" value={nationalId} onChange={(e) => setNationalId(e.target.value.replace(/\D/g, '').slice(0, 13))} placeholder="x-xxxx-xxxxx-xx-x" inputMode="numeric" required className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
+          <label className="block text-sm font-medium text-slate-300 mb-1.5">{nationality === 'ไทย' ? 'เลขบัตรประชาชน *' : 'เลขประจำตัว / หนังสือเดินทาง *'}</label>
+          <input type="text" value={nationalId} onChange={(e) => setNationalId(nationality === 'ไทย' ? e.target.value.replace(/\D/g, '').slice(0, 13) : e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 20))} placeholder={nationality === 'ไทย' ? '13 หลัก' : 'ตัวอักษรและตัวเลข'} inputMode={nationality === 'ไทย' ? 'numeric' : 'text'} required className="w-full px-4 py-3 bg-slate-900 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
